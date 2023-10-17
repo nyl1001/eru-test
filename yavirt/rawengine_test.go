@@ -24,8 +24,15 @@ import (
 //	default:
 //		return types.RawEngineResp{}, errors.Errorf("invalid operation %s", req.Op)
 //	}
+// 【success】call RawEngine input params: ID : 00-ERU-YET-ANOTHER-VIRT-2023042100032016970114660352050000000001, op: vm-list-vols, extendParams: null, response: id:"00-ERU-YET-ANOTHER-VIRT-20230421000320169701146603520000000001" data:"[{\"name\":\"rbd-00032016970114660352050000000002\",\"size\":21474836480,\"device\":\"vda\"}]"
+// 【success】call RawEngine input params: ID : 00-ERU-YET-ANOTHER-VIRT-2023042100032016970114660352050000000001, op: vm-fs-freeze-status, extendParams: null, response: id:"00-ERU-YET-ANOTHER-VIRT-20230421000320169701140352050000000001" data:"{\"status\": \"\"thawed\"\"}"
+// 【success】call RawEngine input params: ID : 00-ERU-YET-ANOTHER-VIRT-2023042100032016970114660352050000000001, op: vm-fs-freeze-all, extendParams: null, response: id:"00-ERU-YET-ANOTHER-VIRT-20230421000320169701146602050000000001" data:"{\"fs_count\": 1}"
+// 【success】call RawEngine input params: ID : 00-ERU-YET-ANOTHER-VIRT-2023042100032016970114660352050000000001, op: vm-fs-freeze-status, extendParams: null, response: id:"00-ERU-YET-ANOTHER-VIRT-20230421000320169701140352050000000001" data:"{\"status\": \"\"frozen\"\"}"
+// 【success】call RawEngine input params: ID : 00-ERU-YET-ANOTHER-VIRT-2023042100032016970114660352050000000001, op: vm-fs-thaw-all, extendParams: null, response: id:"00-ERU-YET-ANOTHER-VIRT-20230421000320169701146603550000000001" data:"{\"fs_count\": 1}"
+// 【success】call RawEngine input params: ID : 00-ERU-YET-ANOTHER-VIRT-2023042100032016970114660352050000000001, op: vm-fs-freeze-status, extendParams: null, response: id:"00-ERU-YET-ANOTHER-VIRT-20230421000320169701140352050000000001" data:"{\"status\": \"\"thawed\"\"}"
 
 func TestVmListVols(t *testing.T) {
+
 	ctx := context.Background()
 	eruWorkloadID := "00-ERU-YET-ANOTHER-VIRT-2023042100032016970114660352050000000001"
 	commonRawEngineWithPrint(ctx, eruWorkloadID, "vm-list-vols", nil)
@@ -33,6 +40,7 @@ func TestVmListVols(t *testing.T) {
 	commonRawEngineWithPrint(ctx, eruWorkloadID, "vm-fs-freeze-all", nil)
 	commonRawEngineWithPrint(ctx, eruWorkloadID, "vm-fs-freeze-status", nil)
 	commonRawEngineWithPrint(ctx, eruWorkloadID, "vm-fs-thaw-all", nil)
+
 	commonRawEngineWithPrint(ctx, eruWorkloadID, "vm-fs-freeze-status", nil)
 }
 
