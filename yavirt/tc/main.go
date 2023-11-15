@@ -172,12 +172,6 @@ func showTcBandwidthConfig(distIfName string) error {
 	}
 
 	return nil
-
-	err = deleteU32Filters(tcSocket, devID, relatedClasses)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func genTcBandwidthConfig(distIfName string) error {
@@ -200,17 +194,68 @@ func genTcBandwidthConfig(distIfName string) error {
 		}
 	}()
 
+	parentHtbQDISC, err := findRootHtbQDisc(tcSocket, distIfName)
+	if err != nil {
+		return err
+	}
+
+	err = deleteU32Filters(tcSocket, devID, parentHtbQDISC)
+	if err != nil {
+		return err
+	}
+
+	err = removeSfqQDiscs(tcSocket, distIfName)
+	if err != nil {
+		return err
+	}
+
+	err = removeClasses(tcSocket, devID, parentHtbQDISC)
+	if err != nil {
+		return err
+	}
+
+	rootCls, err := findDefaultRootClass(tcSocket, devID, parentHtbQDISC)
+	if err != nil {
+		return err
+	}
+
+	bandwidthLimitInfo := Bandwidth{
+		TotalBandwidthAvg:   uint32(20971520 / 8),
+		TotalBandwidthCeil:  uint32(10485760 / 8),
+		PublicBandwidthAvg:  uint32(5971520 / 8),
+		PublicBandwidthCeil: uint32(10971520 / 8),
+	}
+
+	classes, err := addClasses(tcSocket, rootCls, devID, &bandwidthLimitInfo)
+	if err != nil {
+		return err
+	}
+
+	err = addSfqQDisc(tcSocket, devID, classes)
+	if err != nil {
+		return err
+	}
+
+	err = addFilters(tcSocket, devID, classes)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func findRootHtbQDisc(tcSocket *tc.Tc, distIfName string) (*tc.Object, error) {
 	qdiscs, err := tcSocket.Qdisc().Get()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "could not get qdiscs: %v\n", err)
-		return err
+		return nil, err
 	}
 	var distHtbQDISC tc.Object
 	for _, qdisc := range qdiscs {
 		iface, err := net.InterfaceByIndex(int(qdisc.Ifindex))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "could not get interface from id %d: %v", qdisc.Ifindex, err)
-			return err
+			return nil, err
 		}
 		if iface.Name != distIfName {
 			continue
@@ -218,26 +263,22 @@ func genTcBandwidthConfig(distIfName string) error {
 		fmt.Printf("qdsic => %20s\t%s\thandle:%d\tparent:%d\n", iface.Name, qdisc.Kind, qdisc.Handle, qdisc.Parent)
 		if iface.Name == distIfName && qdisc.Kind == "htb" && qdisc.Parent == tc.HandleRoot {
 			distHtbQDISC = qdisc
+			break
 		}
 	}
 
 	if distHtbQDISC.Handle == 0 {
 		distHtbQDISC.Parent = tc.HandleRoot
 	}
+	return &distHtbQDISC, nil
+}
 
-	relatedClasses, err := tcSocket.Class().Get(&tc.Msg{
-		Family:  0,
-		Ifindex: uint32(devID.Index),
-		Handle:  0,
-		Parent:  distHtbQDISC.Handle,
-		Info:    0,
-	})
-
-	err = deleteU32Filters(tcSocket, devID, relatedClasses)
+func removeSfqQDiscs(tcSocket *tc.Tc, distIfName string) error {
+	qdiscs, err := tcSocket.Qdisc().Get()
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "could not get qdiscs: %v\n", err)
 		return err
 	}
-
 	for _, qdisc := range qdiscs {
 		iface, err := net.InterfaceByIndex(int(qdisc.Ifindex))
 		if err != nil {
@@ -258,53 +299,6 @@ func genTcBandwidthConfig(distIfName string) error {
 			return err
 		}
 	}
-
-	var rootCls tc.Object
-
-	for _, cls := range relatedClasses {
-		if cls.Parent == tc.HandleRoot {
-			rootCls = cls
-			fmt.Printf("class [reserve] => %20s\thandle:%d\tparent:%d\n", cls.Kind, cls.Handle, cls.Parent)
-			continue
-		}
-		fmt.Printf("class [delete] => %20s\thandle:%d\tparent:%d\n", cls.Kind, cls.Handle, cls.Parent)
-		err = tcSocket.Class().Delete(&cls)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "could not del class: %v\n", err)
-			return err
-		}
-	}
-
-	relatedClasses, err = tcSocket.Class().Get(&tc.Msg{
-		Family:  0,
-		Ifindex: uint32(devID.Index),
-		Handle:  0,
-		Parent:  distHtbQDISC.Parent,
-		Info:    0,
-	})
-
-	fmt.Println("left relatedClasses len", len(relatedClasses))
-
-	reservedClasses, err := tcSocket.Class().Get(&tc.Msg{
-		Family:  0,
-		Ifindex: uint32(devID.Index),
-		Parent:  0,
-		Info:    0,
-	})
-	for _, cls := range reservedClasses {
-		fmt.Printf("reserved htb class => %20s\thandle:%d\tparent:%d\n", cls.Kind, cls.Handle, cls.Parent)
-	}
-
-	bandwidthLimitInfo := Bandwidth{
-		TotalBandwidthAvg:   uint32(20971520 / 8),
-		TotalBandwidthCeil:  uint32(10485760 / 8),
-		PublicBandwidthAvg:  uint32(5971520 / 8),
-		PublicBandwidthCeil: uint32(10971520 / 8),
-	}
-	err = add(tcSocket, rootCls, devID, &bandwidthLimitInfo)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -315,7 +309,7 @@ type Bandwidth struct {
 	PublicBandwidthCeil uint32
 }
 
-func add(tcSocket *tc.Tc, rootCls tc.Object, devID *net.Interface, bandwidthLimitInfo *Bandwidth) error {
+func addClasses(tcSocket *tc.Tc, rootCls *tc.Object, devID *net.Interface, bandwidthLimitInfo *Bandwidth) ([]tc.Object, error) {
 	publicIpRate := bandwidthLimitInfo.PublicBandwidthAvg
 	publicIpCeil := bandwidthLimitInfo.PublicBandwidthCeil
 
@@ -455,12 +449,15 @@ func add(tcSocket *tc.Tc, rootCls tc.Object, devID *net.Interface, bandwidthLimi
 		//fmt.Printf("Trying to add class: %s\n", string(clsb))
 		if err := tcSocket.Class().Add(&cls); err != nil {
 			fmt.Fprintf(os.Stderr, "add class failed, kind: %20s\thandle:%d\tparent:%d, error: %v\n", cls.Kind, cls.Handle, cls.Parent, err)
-			return err
+			return nil, err
 		}
 		fmt.Printf("add class success => kind: %20s\thandle:%d\tparent:%d\n", cls.Kind, cls.Handle, cls.Parent)
 
 	}
+	return classes, nil
+}
 
+func addSfqQDisc(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) error {
 	qdiscs := []tc.Object{
 		{
 			Msg: tc.Msg{
@@ -509,11 +506,6 @@ func add(tcSocket *tc.Tc, rootCls tc.Object, devID *net.Interface, bandwidthLimi
 		}
 		fmt.Printf("add qdisc success => kind: %20s\thandle:%d\tparent:%d\n", qs.Kind, qs.Handle, qs.Parent)
 	}
-
-	err := addFilters(tcSocket, devID, classes)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -538,7 +530,17 @@ func displayFilters(tcSocket *tc.Tc, devID *net.Interface, parentClasses []tc.Ob
 	return nil
 }
 
-func deleteU32Filters(tcSocket *tc.Tc, devID *net.Interface, parentClasses []tc.Object) error {
+func deleteU32Filters(tcSocket *tc.Tc, devID *net.Interface, parentHtbQDISC *tc.Object) error {
+	relatedClasses, err := tcSocket.Class().Get(&tc.Msg{
+		Family:  0,
+		Ifindex: uint32(devID.Index),
+		Handle:  0,
+		Parent:  parentHtbQDISC.Handle,
+		Info:    0,
+	})
+	if err != nil {
+		return err
+	}
 	filters, _ := tcSocket.Filter().Get(&tc.Msg{
 		Family:  0,
 		Ifindex: uint32(devID.Index),
@@ -559,7 +561,7 @@ func deleteU32Filters(tcSocket *tc.Tc, devID *net.Interface, parentClasses []tc.
 		}
 		fmt.Printf("delete filter success => %20s\thandle:%d\tparent:%d\n", ft.Kind, ft.Handle, ft.Parent)
 	}
-	for _, pCls := range parentClasses {
+	for _, pCls := range relatedClasses {
 		filters, _ := tcSocket.Filter().Get(&tc.Msg{
 			Family:  0,
 			Ifindex: uint32(devID.Index),
@@ -580,6 +582,60 @@ func deleteU32Filters(tcSocket *tc.Tc, devID *net.Interface, parentClasses []tc.
 				return err
 			}
 			fmt.Printf("delete filter success => %20s\thandle:%d\tparent:%d\n", ft.Kind, ft.Handle, ft.Parent)
+		}
+	}
+	return nil
+}
+
+func findDefaultRootClass(tcSocket *tc.Tc, devID *net.Interface, parentHtbQDISC *tc.Object) (*tc.Object, error) {
+	relatedClasses, err := tcSocket.Class().Get(&tc.Msg{
+		Family:  0,
+		Ifindex: uint32(devID.Index),
+		Handle:  0,
+		Parent:  parentHtbQDISC.Handle,
+		Info:    0,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var rootCls tc.Object
+	for _, cls := range relatedClasses {
+		if cls.Parent == tc.HandleRoot {
+			rootCls = cls
+			fmt.Printf("class [reserve] => %20s\thandle:%d\tparent:%d\n", cls.Kind, cls.Handle, cls.Parent)
+			continue
+		}
+		fmt.Printf("class [delete] => %20s\thandle:%d\tparent:%d\n", cls.Kind, cls.Handle, cls.Parent)
+		err = tcSocket.Class().Delete(&cls)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "could not del class: %v\n", err)
+			return nil, err
+		}
+	}
+	return &rootCls, nil
+}
+
+func removeClasses(tcSocket *tc.Tc, devID *net.Interface, parentHtbQDISC *tc.Object) error {
+	relatedClasses, err := tcSocket.Class().Get(&tc.Msg{
+		Family:  0,
+		Ifindex: uint32(devID.Index),
+		Handle:  0,
+		Parent:  parentHtbQDISC.Handle,
+		Info:    0,
+	})
+	if err != nil {
+		return err
+	}
+	for _, cls := range relatedClasses {
+		if cls.Parent == tc.HandleRoot {
+			fmt.Printf("class [reserve] => %20s\thandle:%d\tparent:%d\n", cls.Kind, cls.Handle, cls.Parent)
+			continue
+		}
+		fmt.Printf("class [delete] => %20s\thandle:%d\tparent:%d\n", cls.Kind, cls.Handle, cls.Parent)
+		err = tcSocket.Class().Delete(&cls)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "could not del class: %v\n", err)
+			return err
 		}
 	}
 	return nil
