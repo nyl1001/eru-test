@@ -4,8 +4,10 @@ go 1.21.0
 
 require (
 	github.com/florianl/go-tc v0.4.2
+	github.com/getsentry/sentry-go v0.23.0
 	github.com/mdlayher/netlink v1.7.2
 	github.com/projecteru2/core v0.0.0-20231011045726-f834c8786ef0
+	github.com/sirupsen/logrus v1.9.0
 	golang.org/x/sys v0.11.0
 )
 
@@ -19,7 +21,6 @@ require (
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/getsentry/sentry-go v0.23.0 // indirect
 	github.com/go-ping/ping v1.1.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
