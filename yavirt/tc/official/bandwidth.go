@@ -1,6 +1,7 @@
-package bandwidth
+package official
 
 import (
+	"encoding/json"
 	"eru-test/yavirt/tc/official/log"
 	"net"
 	"strings"
@@ -13,8 +14,6 @@ type Bandwidth struct {
 	PublicBandwidthAvg  uint32
 	PublicBandwidthCeil uint32
 }
-
-const protocolIP = 3221094408
 
 func GenTcBandwidthConfig(ifaceName string, bandwidthLimitInfo *Bandwidth) error {
 	devID, err := net.InterfaceByName(ifaceName)
@@ -295,16 +294,14 @@ func removeU32Filters(tcSocket *tc.Tc, devID *net.Interface, parentHtbQDISC *tc.
 		Ifindex: uint32(devID.Index),
 	})
 	for _, ft := range filters {
-		if ft.Kind != "u32" {
-			continue
-		}
 		err := tcSocket.Filter().Delete(&ft)
 		if err != nil {
 			if strings.Contains(err.Error(), "no such file or directory") {
 				err = nil
 				continue
 			}
-			log.Errorf("[removeU32Filters] delete filter failed, err: %v, %20s\thandle:%d\tparent:%d ", err, ft.Kind, ft.Handle, ft.Parent)
+			by, _ := json.Marshal(ft)
+			log.Errorf("[removeU32Filters] delete top filter failed, err: kind: %v, %20s handle:%d parent:%d, top filter info : %s", err, ft.Kind, ft.Handle, ft.Parent, string(by))
 			return err
 		}
 	}
@@ -315,16 +312,14 @@ func removeU32Filters(tcSocket *tc.Tc, devID *net.Interface, parentHtbQDISC *tc.
 			Parent:  pCls.Handle,
 		})
 		for _, ft := range filters {
-			if ft.Kind != "u32" {
-				continue
-			}
 			err := tcSocket.Filter().Delete(&ft)
 			if err != nil {
 				if strings.Contains(err.Error(), "no such file or directory") {
 					err = nil
 					continue
 				}
-				log.Errorf("[removeU32Filters] delete filter failed, err: %v, %20s\thandle:%d\tparent:%d ", err, ft.Kind, ft.Handle, ft.Parent)
+				by, _ := json.Marshal(ft)
+				log.Errorf("[removeU32Filters] delete child filter failed, err: kind: %v, %20s handle:%d parent:%d, top filter info : %s", err, ft.Kind, ft.Handle, ft.Parent, string(by))
 				return err
 			}
 		}
@@ -383,13 +378,14 @@ func removeClasses(tcSocket *tc.Tc, devID *net.Interface, parentHtbQDISC *tc.Obj
 }
 
 func addFilters(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) error {
+	infos := []uint32{3221159944, 3221225480, 3221094408} // ip protocol pref 的三个数值
 	u32Filters := []tc.Object{
 		{
 			Msg: tc.Msg{
 				Family:  unix.AF_UNSPEC,
 				Ifindex: uint32(devID.Index),
 				Handle:  0,
-				Info:    protocolIP,
+				Info:    infos[0],
 			},
 			Attribute: tc.Attribute{
 				Kind: "u32",
@@ -406,13 +402,13 @@ func addFilters(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) erro
 							{
 								Mask:    0x00000000, // 不使用子网掩码
 								Val:     0x00000000, // 0.0.0.0的二进制表示
-								Off:     16,
+								Off:     16,         // 表示目的ip，dist ip
 								OffMask: 0,
 							},
 						},
 					},
 				},
-				Prio: &tc.Prio{Bands: 2}, // 设置优先级，例如2个band
+				Prio: &tc.Prio{Bands: 0}, // 设置优先级，例如2个band
 			},
 		},
 		{
@@ -420,7 +416,7 @@ func addFilters(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) erro
 				Family:  unix.AF_UNSPEC,
 				Ifindex: uint32(devID.Index),
 				Handle:  0,
-				Info:    protocolIP,
+				Info:    infos[1],
 			},
 			Attribute: tc.Attribute{
 				Kind: "u32",
@@ -437,13 +433,44 @@ func addFilters(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) erro
 							{
 								Mask:    0x000000ff, // 8位子网掩码
 								Val:     0x0000000a, // 10.0.0.0的二进制表示
-								Off:     12,
+								Off:     16,         // 表示目的ip，dist ip
 								OffMask: 0,
 							},
 						},
 					},
 				},
-				Prio: &tc.Prio{Bands: 1}, // 设置优先级，例如1个band
+				Prio: &tc.Prio{Bands: 0}, // 设置优先级，例如1个band
+			},
+		},
+		{
+			Msg: tc.Msg{
+				Family:  unix.AF_UNSPEC,
+				Ifindex: uint32(devID.Index),
+				Handle:  0,
+				Info:    infos[2],
+			},
+			Attribute: tc.Attribute{
+				Kind: "u32",
+				U32: &tc.U32{
+					ClassID: &classes[1].Handle,
+					// 匹配在10.0.0.0/8范围内的IP地址
+					Sel: &tc.U32Sel{
+						Flags:   1,
+						NKeys:   1,
+						Off:     0, // 偏移量，跳过以太网头和IP头
+						OffMask: 0, // 8位子网掩码
+						Offoff:  0,
+						Keys: []tc.U32Key{
+							{
+								Mask:    0x000000ff, // 8位子网掩码
+								Val:     0x0000000a, // 10.0.0.0的二进制表示
+								Off:     12,         // 表示来源ip，src ip
+								OffMask: 0,
+							},
+						},
+					},
+				},
+				Prio: &tc.Prio{Bands: 0}, // 设置优先级，例如1个band
 			},
 		},
 	}
