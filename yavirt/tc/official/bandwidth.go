@@ -40,7 +40,7 @@ func GenTcBandwidthConfig(ifaceName string, bandwidthLimitInfo *Bandwidth) error
 		return err
 	}
 
-	err = deleteU32Filters(tcSocket, devID, parentHtbQDISC)
+	err = removeU32Filters(tcSocket, devID, parentHtbQDISC)
 	if err != nil {
 		return err
 	}
@@ -239,7 +239,7 @@ func addSfqQDisc(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) err
 	return nil
 }
 
-func deleteU32Filters(tcSocket *tc.Tc, devID *net.Interface, parentHtbQDISC *tc.Object) error {
+func removeU32Filters(tcSocket *tc.Tc, devID *net.Interface, parentHtbQDISC *tc.Object) error {
 	relatedClasses, err := tcSocket.Class().Get(&tc.Msg{
 		Family:  0,
 		Ifindex: uint32(devID.Index),
@@ -264,7 +264,7 @@ func deleteU32Filters(tcSocket *tc.Tc, devID *net.Interface, parentHtbQDISC *tc.
 				err = nil
 				continue
 			}
-			fmt.Fprintf(os.Stderr, "[deleteU32Filters] delete filter failed, err: %v, %20s\thandle:%d\tparent:%d \n", err, ft.Kind, ft.Handle, ft.Parent)
+			fmt.Fprintf(os.Stderr, "[removeU32Filters] delete filter failed, err: %v, %20s\thandle:%d\tparent:%d \n", err, ft.Kind, ft.Handle, ft.Parent)
 			return err
 		}
 	}
@@ -284,7 +284,7 @@ func deleteU32Filters(tcSocket *tc.Tc, devID *net.Interface, parentHtbQDISC *tc.
 					err = nil
 					continue
 				}
-				fmt.Fprintf(os.Stderr, "[deleteU32Filters] delete filter failed, err: %v, %20s\thandle:%d\tparent:%d \n", err, ft.Kind, ft.Handle, ft.Parent)
+				fmt.Fprintf(os.Stderr, "[removeU32Filters] delete filter failed, err: %v, %20s\thandle:%d\tparent:%d \n", err, ft.Kind, ft.Handle, ft.Parent)
 				return err
 			}
 		}

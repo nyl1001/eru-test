@@ -199,7 +199,7 @@ func genTcBandwidthConfig(ifaceName string) error {
 		return err
 	}
 
-	err = deleteU32Filters(tcSocket, devID, parentHtbQDISC)
+	err = removeU32Filters(tcSocket, devID, parentHtbQDISC)
 	if err != nil {
 		return err
 	}
@@ -528,7 +528,7 @@ func displayFilters(tcSocket *tc.Tc, devID *net.Interface, parentClasses []tc.Ob
 	return nil
 }
 
-func deleteU32Filters(tcSocket *tc.Tc, devID *net.Interface, parentHtbQDISC *tc.Object) error {
+func removeU32Filters(tcSocket *tc.Tc, devID *net.Interface, parentHtbQDISC *tc.Object) error {
 	relatedClasses, err := tcSocket.Class().Get(&tc.Msg{
 		Family:  0,
 		Ifindex: uint32(devID.Index),
