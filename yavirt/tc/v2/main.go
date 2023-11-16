@@ -309,13 +309,13 @@ func addClasses(tcSocket *tc.Tc, rootCls *tc.Object, devID *net.Interface, bandw
 	publicIpRate := bandwidthLimitInfo.PublicBandwidthAvg
 	publicIpCeil := bandwidthLimitInfo.PublicBandwidthCeil
 
-	existMaxHtbHandleIndex := uint32(65536)
+	constClsHandleIndex := uint32(65536)
 	classes := []tc.Object{
 		{
 			Msg: tc.Msg{
 				Family:  unix.AF_UNSPEC,
 				Ifindex: uint32(devID.Index),
-				Handle:  existMaxHtbHandleIndex + 1,
+				Handle:  constClsHandleIndex + 1,
 				Parent:  rootCls.Handle,
 			},
 			Attribute: tc.Attribute{
@@ -349,7 +349,7 @@ func addClasses(tcSocket *tc.Tc, rootCls *tc.Object, devID *net.Interface, bandw
 			Msg: tc.Msg{
 				Family:  unix.AF_UNSPEC,
 				Ifindex: uint32(devID.Index),
-				Handle:  existMaxHtbHandleIndex + 2,
+				Handle:  constClsHandleIndex + 2,
 				Parent:  rootCls.Handle,
 			},
 			Attribute: rootCls.Attribute,
@@ -375,9 +375,9 @@ func addSfqQDisc(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) err
 			Msg: tc.Msg{
 				Family:  unix.AF_UNSPEC,
 				Ifindex: uint32(devID.Index),
-				Handle:  uint32(1048576),
-				Parent:  classes[0].Handle,
-				Info:    0,
+				//Handle:  uint32(1048576),
+				Parent: classes[0].Handle,
+				Info:   0,
 			},
 			Attribute: tc.Attribute{
 				Kind: "sfq", Sfq: &tc.Sfq{V0: tc.SfqQopt{
@@ -392,9 +392,9 @@ func addSfqQDisc(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) err
 			Msg: tc.Msg{
 				Family:  unix.AF_UNSPEC,
 				Ifindex: uint32(devID.Index),
-				Handle:  uint32(2097152),
-				Parent:  classes[1].Handle,
-				Info:    0,
+				//Handle:  uint32(2097152),
+				Parent: classes[1].Handle,
+				Info:   0,
 			},
 			Attribute: tc.Attribute{
 				Kind: "sfq", Sfq: &tc.Sfq{V0: tc.SfqQopt{
