@@ -15,8 +15,8 @@ type Bandwidth struct {
 	PublicBandwidthCeil uint32
 }
 
-func GenTcBandwidthConfig(distIfName string, bandwidthLimitInfo *Bandwidth) error {
-	devID, err := net.InterfaceByName(distIfName)
+func GenTcBandwidthConfig(ifaceName string, bandwidthLimitInfo *Bandwidth) error {
+	devID, err := net.InterfaceByName(ifaceName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[GenTcBandwidthConfig] could not get interface ID: %v\n", err)
 		return err
@@ -33,7 +33,7 @@ func GenTcBandwidthConfig(distIfName string, bandwidthLimitInfo *Bandwidth) erro
 		}
 	}()
 
-	parentHtbQDISC, err := findRootHtbQDisc(tcSocket, distIfName)
+	parentHtbQDISC, err := findRootHtbQDisc(tcSocket, ifaceName)
 	if err != nil {
 		return err
 	}
@@ -43,7 +43,7 @@ func GenTcBandwidthConfig(distIfName string, bandwidthLimitInfo *Bandwidth) erro
 		return err
 	}
 
-	err = removeSfqQDiscs(tcSocket, distIfName)
+	err = removeSfqQDiscs(tcSocket, ifaceName)
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func GenTcBandwidthConfig(distIfName string, bandwidthLimitInfo *Bandwidth) erro
 	return nil
 }
 
-func findRootHtbQDisc(tcSocket *tc.Tc, distIfName string) (*tc.Object, error) {
+func findRootHtbQDisc(tcSocket *tc.Tc, ifaceName string) (*tc.Object, error) {
 	qdiscs, err := tcSocket.Qdisc().Get()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[findRootHtbQDisc] could not get qdiscs: %v\n", err)
@@ -89,10 +89,10 @@ func findRootHtbQDisc(tcSocket *tc.Tc, distIfName string) (*tc.Object, error) {
 			fmt.Fprintf(os.Stderr, "[findRootHtbQDisc] could not get interface from id %d: %v", qdisc.Ifindex, err)
 			return nil, err
 		}
-		if iface.Name != distIfName {
+		if iface.Name != ifaceName {
 			continue
 		}
-		if iface.Name == distIfName && qdisc.Kind == "htb" && qdisc.Parent == tc.HandleRoot {
+		if iface.Name == ifaceName && qdisc.Kind == "htb" && qdisc.Parent == tc.HandleRoot {
 			distHtbQDISC = qdisc
 			break
 		}
@@ -104,7 +104,7 @@ func findRootHtbQDisc(tcSocket *tc.Tc, distIfName string) (*tc.Object, error) {
 	return &distHtbQDISC, nil
 }
 
-func removeSfqQDiscs(tcSocket *tc.Tc, distIfName string) error {
+func removeSfqQDiscs(tcSocket *tc.Tc, ifaceName string) error {
 	qdiscs, err := tcSocket.Qdisc().Get()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[removeSfqQDiscs] could not get qdiscs: %v\n", err)
@@ -116,7 +116,7 @@ func removeSfqQDiscs(tcSocket *tc.Tc, distIfName string) error {
 			fmt.Fprintf(os.Stderr, "[removeSfqQDiscs] could not get interface from id %d: %v", qdisc.Ifindex, err)
 			return err
 		}
-		if iface.Name != distIfName {
+		if iface.Name != ifaceName {
 			continue
 		}
 		if qdisc.Parent == tc.HandleRoot {
