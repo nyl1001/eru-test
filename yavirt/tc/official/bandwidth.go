@@ -15,6 +15,8 @@ type Bandwidth struct {
 	PublicBandwidthCeil uint32
 }
 
+const protocolIP = 3221094408
+
 func GenTcBandwidthConfig(ifaceName string, bandwidthLimitInfo *Bandwidth) error {
 	devID, err := net.InterfaceByName(ifaceName)
 	if err != nil {
@@ -135,6 +137,7 @@ func addClasses(tcSocket *tc.Tc, rootCls *tc.Object, devID *net.Interface, bandw
 	publicIpRate := bandwidthLimitInfo.PublicBandwidthAvg
 	publicIpCeil := bandwidthLimitInfo.PublicBandwidthCeil
 
+	// It must be the class handle index in the specified range. To avoid duplication, specify it directly.
 	constClsHandleIndex := uint32(65536)
 	classes := []tc.Object{
 		{
@@ -197,11 +200,9 @@ func addSfqQDisc(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) err
 			Msg: tc.Msg{
 				Family:  unix.AF_UNSPEC,
 				Ifindex: uint32(devID.Index),
-				//Handle:  uint32(1048576),
-				Parent: classes[0].Handle,
-				Info:   0,
+				Parent:  classes[0].Handle,
+				Info:    0,
 			},
-			// configure a very basic hierarchy token bucket (htb) qdisc
 			Attribute: tc.Attribute{
 				Kind: "sfq", Sfq: &tc.Sfq{V0: tc.SfqQopt{
 					PerturbPeriod: 10,
@@ -215,9 +216,8 @@ func addSfqQDisc(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) err
 			Msg: tc.Msg{
 				Family:  unix.AF_UNSPEC,
 				Ifindex: uint32(devID.Index),
-				//Handle:  uint32(2097152),
-				Parent: classes[1].Handle,
-				Info:   0,
+				Parent:  classes[1].Handle,
+				Info:    0,
 			},
 			Attribute: tc.Attribute{
 				Kind: "sfq", Sfq: &tc.Sfq{V0: tc.SfqQopt{
@@ -348,12 +348,9 @@ func addFilters(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) erro
 			Msg: tc.Msg{
 				Family:  unix.AF_UNSPEC,
 				Ifindex: uint32(devID.Index),
-				//Handle:  uint32(2149582848),
-				Handle: 0,
-				//Parent: rootCls.Handle,
-				Info: 3221094408,
+				Handle:  0,
+				Info:    protocolIP,
 			},
-			// configure a very basic hierarchy token bucket (htb) qdisc
 			Attribute: tc.Attribute{
 				Kind: "u32",
 				U32: &tc.U32{
@@ -382,10 +379,8 @@ func addFilters(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) erro
 			Msg: tc.Msg{
 				Family:  unix.AF_UNSPEC,
 				Ifindex: uint32(devID.Index),
-				//Handle:  uint32(2149580800),
-				Handle: 0,
-				//Parent: rootCls.Handle,
-				Info: 3221094408,
+				Handle:  0,
+				Info:    protocolIP,
 			},
 			Attribute: tc.Attribute{
 				Kind: "u32",
