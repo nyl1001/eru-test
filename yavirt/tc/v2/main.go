@@ -379,7 +379,6 @@ func addSfqQDisc(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) err
 				Parent:  classes[0].Handle,
 				Info:    0,
 			},
-			// configure a very basic hierarchy token bucket (htb) qdisc
 			Attribute: tc.Attribute{
 				Kind: "sfq", Sfq: &tc.Sfq{V0: tc.SfqQopt{
 					PerturbPeriod: 10,
@@ -397,7 +396,6 @@ func addSfqQDisc(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) err
 				Parent:  classes[1].Handle,
 				Info:    0,
 			},
-			// configure a very basic hierarchy token bucket (htb) qdisc
 			Attribute: tc.Attribute{
 				Kind: "sfq", Sfq: &tc.Sfq{V0: tc.SfqQopt{
 					PerturbPeriod: 10,
@@ -564,7 +562,6 @@ func addFilters(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) erro
 				//Parent: rootCls.Handle,
 				Info: 3221094408,
 			},
-			// configure a very basic hierarchy token bucket (htb) qdisc
 			Attribute: tc.Attribute{
 				Kind: "u32",
 				U32: &tc.U32{
@@ -598,7 +595,6 @@ func addFilters(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) erro
 				//Parent: rootCls.Handle,
 				Info: 3221094408,
 			},
-			// configure a very basic hierarchy token bucket (htb) qdisc
 			Attribute: tc.Attribute{
 				Kind: "u32",
 				U32: &tc.U32{

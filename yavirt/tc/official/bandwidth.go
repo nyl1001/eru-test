@@ -18,18 +18,18 @@ type Bandwidth struct {
 func GenTcBandwidthConfig(ifaceName string, bandwidthLimitInfo *Bandwidth) error {
 	devID, err := net.InterfaceByName(ifaceName)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[GenTcBandwidthConfig] could not get interface ID: %v\n", err)
+		fmt.Fprintf(os.Stderr, "[GenTcBandwidthConfig] could not get interface ID, err: %v\n", err)
 		return err
 	}
 	// open a rtnetlink socket
 	tcSocket, err := tc.Open(&tc.Config{})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[GenTcBandwidthConfig] could not open rtnetlink socket: %v\n", err)
+		fmt.Fprintf(os.Stderr, "[GenTcBandwidthConfig] could not open rtnetlink socket, err: %v\n", err)
 		return err
 	}
 	defer func() {
 		if err := tcSocket.Close(); err != nil {
-			fmt.Fprintf(os.Stderr, "[GenTcBandwidthConfig] could not close rtnetlink socket: %v\n", err)
+			fmt.Fprintf(os.Stderr, "[GenTcBandwidthConfig] could not close rtnetlink socket, err: %v\n", err)
 		}
 	}()
 
@@ -79,14 +79,14 @@ func GenTcBandwidthConfig(ifaceName string, bandwidthLimitInfo *Bandwidth) error
 func findRootHtbQDisc(tcSocket *tc.Tc, ifaceName string) (*tc.Object, error) {
 	qdiscs, err := tcSocket.Qdisc().Get()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[findRootHtbQDisc] could not get qdiscs: %v\n", err)
+		fmt.Fprintf(os.Stderr, "[findRootHtbQDisc] could not get qdisc, err: %v\n", err)
 		return nil, err
 	}
 	var distHtbQDISC tc.Object
 	for _, qdisc := range qdiscs {
 		iface, err := net.InterfaceByIndex(int(qdisc.Ifindex))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "[findRootHtbQDisc] could not get interface from id %d: %v", qdisc.Ifindex, err)
+			fmt.Fprintf(os.Stderr, "[findRootHtbQDisc] could not get interface from id %d, err: %v", qdisc.Ifindex, err)
 			return nil, err
 		}
 		if iface.Name != ifaceName {
@@ -107,13 +107,13 @@ func findRootHtbQDisc(tcSocket *tc.Tc, ifaceName string) (*tc.Object, error) {
 func removeSfqQDiscs(tcSocket *tc.Tc, ifaceName string) error {
 	qdiscs, err := tcSocket.Qdisc().Get()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[removeSfqQDiscs] could not get qdiscs: %v\n", err)
+		fmt.Fprintf(os.Stderr, "[removeSfqQDiscs] could not get qdisc, err: %v\n", err)
 		return err
 	}
 	for _, qdisc := range qdiscs {
 		iface, err := net.InterfaceByIndex(int(qdisc.Ifindex))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "[removeSfqQDiscs] could not get interface from id %d: %v", qdisc.Ifindex, err)
+			fmt.Fprintf(os.Stderr, "[removeSfqQDiscs] could not get interface from id %d, err: %v", qdisc.Ifindex, err)
 			return err
 		}
 		if iface.Name != ifaceName {
@@ -124,7 +124,7 @@ func removeSfqQDiscs(tcSocket *tc.Tc, ifaceName string) error {
 		}
 		err = tcSocket.Qdisc().Delete(&qdisc)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "[removeSfqQDiscs] could not del qdisc: %v\n", err)
+			fmt.Fprintf(os.Stderr, "[removeSfqQDiscs] could not del qdisc, err: %v\n", err)
 			return err
 		}
 	}
@@ -184,7 +184,7 @@ func addClasses(tcSocket *tc.Tc, rootCls *tc.Object, devID *net.Interface, bandw
 
 	for _, cls := range classes {
 		if err := tcSocket.Class().Add(&cls); err != nil {
-			fmt.Fprintf(os.Stderr, "[GenTcBandwidthConfig] add class failed, kind: %20s\thandle:%d\tparent:%d, error: %v\n", cls.Kind, cls.Handle, cls.Parent, err)
+			fmt.Fprintf(os.Stderr, "[GenTcBandwidthConfig] add class failed, kind: %20s\thandle:%d\tparent:%d, err: %v\n", cls.Kind, cls.Handle, cls.Parent, err)
 			return nil, err
 		}
 	}
@@ -232,7 +232,7 @@ func addSfqQDisc(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) err
 
 	for _, qs := range qdiscs {
 		if err := tcSocket.Qdisc().Add(&qs); err != nil {
-			fmt.Fprintf(os.Stderr, "[addClasses] add qdisc failed, kind: %20s\thandle:%d\tparent:%d, error: %v\n", qs.Kind, qs.Handle, qs.Parent, err)
+			fmt.Fprintf(os.Stderr, "[addClasses] add qdisc failed, kind: %20s\thandle:%d\tparent:%d, err: %v\n", qs.Kind, qs.Handle, qs.Parent, err)
 			return err
 		}
 	}
@@ -264,7 +264,7 @@ func deleteU32Filters(tcSocket *tc.Tc, devID *net.Interface, parentHtbQDISC *tc.
 				err = nil
 				continue
 			}
-			fmt.Fprintf(os.Stderr, "[deleteU32Filters] delete filter failed: %v, %20s\thandle:%d\tparent:%d \n", err, ft.Kind, ft.Handle, ft.Parent)
+			fmt.Fprintf(os.Stderr, "[deleteU32Filters] delete filter failed, err: %v, %20s\thandle:%d\tparent:%d \n", err, ft.Kind, ft.Handle, ft.Parent)
 			return err
 		}
 	}
@@ -284,7 +284,7 @@ func deleteU32Filters(tcSocket *tc.Tc, devID *net.Interface, parentHtbQDISC *tc.
 					err = nil
 					continue
 				}
-				fmt.Fprintf(os.Stderr, "[deleteU32Filters] delete filter failed: %v, %20s\thandle:%d\tparent:%d \n", err, ft.Kind, ft.Handle, ft.Parent)
+				fmt.Fprintf(os.Stderr, "[deleteU32Filters] delete filter failed, err: %v, %20s\thandle:%d\tparent:%d \n", err, ft.Kind, ft.Handle, ft.Parent)
 				return err
 			}
 		}
@@ -311,7 +311,7 @@ func findDefaultRootClass(tcSocket *tc.Tc, devID *net.Interface, parentHtbQDISC 
 		}
 		err = tcSocket.Class().Delete(&cls)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "[findDefaultRootClass] could not del class: %v\n", err)
+			fmt.Fprintf(os.Stderr, "[findDefaultRootClass] could not del class, err: %v\n", err)
 			return nil, err
 		}
 	}
@@ -335,7 +335,7 @@ func removeClasses(tcSocket *tc.Tc, devID *net.Interface, parentHtbQDISC *tc.Obj
 		}
 		err = tcSocket.Class().Delete(&cls)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "[removeClasses] could not del class: %v\n", err)
+			fmt.Fprintf(os.Stderr, "[removeClasses] could not del class, err: %v\n", err)
 			return err
 		}
 	}
@@ -415,7 +415,7 @@ func addFilters(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) erro
 
 	for _, uf := range u32Filters {
 		if err := tcSocket.Filter().Add(&uf); err != nil {
-			fmt.Fprintf(os.Stderr, "[addFilters] add u32 filter failed, kind: %20s\thandle:%d\tparent:%d, error: %v\n", uf.Kind, uf.Handle, uf.Parent, err)
+			fmt.Fprintf(os.Stderr, "[addFilters] add u32 filter failed, kind: %20s\thandle:%d\tparent:%d, err: %v\n", uf.Kind, uf.Handle, uf.Parent, err)
 			return err
 		}
 	}
