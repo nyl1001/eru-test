@@ -177,7 +177,7 @@ func addClasses(tcSocket *tc.Tc, rootCls *tc.Object, devID *net.Interface, bandw
 	publicIpCeil := bandwidthLimitInfo.PublicBandwidthCeil
 
 	// It must be the class handle index in the specified range. To avoid duplication, specify it directly.
-	constClsHandleIndex := uint32(65536)
+	constClsHandleIndex := rootCls.Handle + 1
 	classes := []tc.Object{
 		{
 			Msg: tc.Msg{
@@ -378,7 +378,7 @@ func removeClasses(tcSocket *tc.Tc, devID *net.Interface, parentHtbQDISC *tc.Obj
 }
 
 func addFilters(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) error {
-	infos := []uint32{3221159944, 3221225480, 3221094408} // ip protocol pref 的三个数值
+	infos := []uint32{131080, 65544} // 对应 ip protocol pref 的两个数值 2，1
 	u32Filters := []tc.Object{
 		{
 			Msg: tc.Msg{
@@ -394,7 +394,7 @@ func addFilters(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) erro
 					// 匹配在0.0.0.0/0范围内的IP地址
 					Sel: &tc.U32Sel{
 						Flags:   0x1,
-						NKeys:   1,
+						NKeys:   2,
 						Off:     0, // 偏移量，跳过以太网头和IP头
 						OffMask: 0, // 不使用子网掩码
 						Offoff:  0,
@@ -403,6 +403,12 @@ func addFilters(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) erro
 								Mask:    0x00000000, // 不使用子网掩码
 								Val:     0x00000000, // 0.0.0.0的二进制表示
 								Off:     16,         // 表示目的ip，dist ip
+								OffMask: 0,
+							},
+							{
+								Mask:    0x00000000, // 不使用子网掩码
+								Val:     0x00000000, // 0.0.0.0的二进制表示
+								Off:     12,         // 表示来源ip，src ip
 								OffMask: 0,
 							},
 						},
@@ -425,7 +431,7 @@ func addFilters(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) erro
 					// 匹配在10.0.0.0/8范围内的IP地址
 					Sel: &tc.U32Sel{
 						Flags:   1,
-						NKeys:   1,
+						NKeys:   2,
 						Off:     0, // 偏移量，跳过以太网头和IP头
 						OffMask: 0, // 8位子网掩码
 						Offoff:  0,
@@ -436,31 +442,6 @@ func addFilters(tcSocket *tc.Tc, devID *net.Interface, classes []tc.Object) erro
 								Off:     16,         // 表示目的ip，dist ip
 								OffMask: 0,
 							},
-						},
-					},
-				},
-				Prio: &tc.Prio{Bands: 0}, // 设置优先级，例如1个band
-			},
-		},
-		{
-			Msg: tc.Msg{
-				Family:  unix.AF_UNSPEC,
-				Ifindex: uint32(devID.Index),
-				Handle:  0,
-				Info:    infos[2],
-			},
-			Attribute: tc.Attribute{
-				Kind: "u32",
-				U32: &tc.U32{
-					ClassID: &classes[1].Handle,
-					// 匹配在10.0.0.0/8范围内的IP地址
-					Sel: &tc.U32Sel{
-						Flags:   1,
-						NKeys:   1,
-						Off:     0, // 偏移量，跳过以太网头和IP头
-						OffMask: 0, // 8位子网掩码
-						Offoff:  0,
-						Keys: []tc.U32Key{
 							{
 								Mask:    0x000000ff, // 8位子网掩码
 								Val:     0x0000000a, // 10.0.0.0的二进制表示
